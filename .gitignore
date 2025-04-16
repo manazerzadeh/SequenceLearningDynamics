@@ -1,2 +1,5 @@
 Data/
 Figs/
+.DS_Store
+.vscode/launch.json
+*.pyc
