@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 if __name__=='__main__':
-    M = mo.LdModel()
+    M = mo.LdModel_additive()
     time = np.concatenate([np.linspace(0,100,100),np.linspace(150,250,100),np.linspace(300,400,100)],axis=0)
     trial = np.arange(np.shape(time)[0])
     yp,z_fast,z_slow,z_fatigue = M.predict(time)
