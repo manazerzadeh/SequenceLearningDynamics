@@ -1,17 +1,14 @@
 import pandas as pd
 import numpy as np
 from typing import List
-
-data_dir = "./Data/"
-path = "./Data/SL3"
-path_misc = "./SL3_miscs/"
+import setglobals as gl
 
 total_sub_num = 16
 seq_length  = 5
 
 
-def read_dat_file(path: str):
-    data = pd.read_csv(path, delimiter='\t')
+def read_dat_file(filename: str):
+    data = pd.read_csv(filename, delimiter='\t')
     return data
 
 
@@ -19,7 +16,7 @@ def read_dat_files_subjs_list(subjs_list: List[int]):
     """
     Reads the corresponding dat files of subjects and converts them to a list of dataframes.
     """
-    data = [read_dat_file(path + "_s" + f'{sub:02}' + ".dat") for sub in subjs_list]
+    data = [read_dat_file(gl.data_dir + "SL3_s" + f'{sub:02}' + ".dat") for sub in subjs_list]
     for sub in subjs_list:
         data[sub - 1]['SubNum'] = sub
     return data
