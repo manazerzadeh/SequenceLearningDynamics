@@ -61,7 +61,7 @@ def add_seq_pressed(subj: pd.DataFrame):
     """
 
     subj['seqPressed'] = subj['resp1'].astype(str) + subj['resp2'].astype(str) + subj['resp3'].astype(str) + subj['resp4'].astype(str) + subj['resp5'].astype(str)
-    
+
 
 
 
@@ -72,33 +72,33 @@ def finger_melt_IPIs(subj: pd.DataFrame) -> pd.DataFrame:
     and "IPI_Value" determining the time of IPI
     """
 
-    
-    subj_melted = pd.melt(subj, 
+
+    subj_melted = pd.melt(subj,
                     id_vars=['BN', 'TN', 'SubNum', 'seqType', 'board', 'day', 'trialPoints', 'latePress',
-                              'hardPress', 'seqError'], 
+                              'hardPress', 'seqError'],
                     value_vars =  [_ for _ in subj.columns if _.startswith('IPI')],
-                    var_name='IPI_Number', 
+                    var_name='IPI_Number',
                     value_name='IPI_Value')
-    
+
 
     subj_melted['N'] = (subj_melted['IPI_Number'].str.extract('(\d+)').astype('int64') + 1)
 
-    
 
-    
+
+
     return subj_melted
 
 
 
 def finger_melt_responses(subj: pd.DataFrame) -> pd.DataFrame:
 
-    subj_melted = pd.melt(subj, 
+    subj_melted = pd.melt(subj,
                     id_vars=['BN', 'TN', 'SubNum', 'seqType', 'board', 'day', 'trialPoints', 'latePress',
-                              'hardPress', 'seqError'], 
+                              'hardPress', 'seqError'],
                     value_vars =  [_ for _ in subj.columns if _.startswith('resp')],
-                    var_name='Response_Number', 
+                    var_name='Response_Number',
                     value_name='Response_Value')
-    
+
     subj_melted['N'] = subj_melted['Response_Number'].str.extract('(\d+)').astype('int64')
 
     return subj_melted
@@ -107,9 +107,9 @@ def finger_melt_responses(subj: pd.DataFrame) -> pd.DataFrame:
 def finger_melt(subj: pd.DataFrame) -> pd.DataFrame:
     melt_IPIs = finger_melt_IPIs(subj)
     melt_responses = finger_melt_responses(subj)
-    
-    merged_df = melt_IPIs.merge(melt_responses, on = ['BN', 'TN', 'SubNum', 'seqType', 
-                                                      'board', 'day', 'trialPoints', 
+
+    merged_df = melt_IPIs.merge(melt_responses, on = ['BN', 'TN', 'SubNum', 'seqType',
+                                                      'board', 'day', 'trialPoints',
                                                       'latePress','hardPress', 'seqError', 'N'] )
 
     return merged_df
@@ -130,15 +130,15 @@ def finger_melt_Forces(subjs_force: pd.DataFrame) -> pd.DataFrame:
     and "Force_Value" determining the time of Force
     """
 
-    
-    subj_force_melted = pd.melt(subjs_force, 
-                    id_vars=['state', 'timeReal', 'time','BN', 'TN', 'SubNum', 'seqType', 
-                                                      'board', 'day', 'trialPoints', 
-                                                      'latePress','hardPress', 'seqError', 'IPI0', 'MT'], 
+
+    subj_force_melted = pd.melt(subjs_force,
+                    id_vars=['state', 'timeReal', 'time','BN', 'TN', 'SubNum', 'seqType',
+                                                      'board', 'day', 'trialPoints',
+                                                      'latePress','hardPress', 'seqError', 'IPI0', 'MT'],
                     value_vars =  [_ for _ in subjs_force.columns if _.startswith('force')],
-                    var_name='Force_Number', 
+                    var_name='Force_Number',
                     value_name='Force_Value')
-    
+
     return subj_force_melted
 
 
