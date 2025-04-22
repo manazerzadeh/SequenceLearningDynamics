@@ -102,7 +102,6 @@ if __name__=='__main__':
     z_slow = M.y0 + z_slow
     D['yp'] = yp
     D['z_slow'] = z_slow
-    plt.figure(1,figsize=)
     plot_data(D)
     plt.figure(2)
     plot_block(D)
