@@ -377,7 +377,6 @@ def calc_neighbour_distances(data):
 
 def plot_neighbour_distances(distances):
     fig = plt.figure(figsize=(8, 8))
-    # 3 rows, 2 columns. Height ratios accommodate the marginal plot for the contour.
     gs = fig.add_gridspec(3, 2, hspace=0.4, wspace=0.3, height_ratios=[6, 1, 5])
     
     ax_dens = fig.add_subplot(gs[0, 0])
@@ -499,7 +498,6 @@ def plot_triplet_distances(distances):
     plt.xlabel(r' $|E_{t+1} - E_{t-1}|$')
     plt.ylabel(r'|| $\vec{F}_{t+1} - \vec{F}_{t-1}$ ||')
 
-    # Remap legend labels without breaking color mapping
     handles, labels = ax.get_legend_handles_labels()
     label_map = {'True': 't is error', 'False': 't is correct'}
     ax.legend(handles, [label_map[l] for l in labels], title='', loc='upper right', bbox_to_anchor=(1.3, 1))
