@@ -7,6 +7,9 @@ import setglobals as gl
 import seaborn as sns
 from matplotlib import ticker
 from statsmodels.stats.anova import AnovaRM
+import statsmodels.api as sm
+import Detrending
+
 
 total_sub_num = 16
 seq_length  = 5
@@ -323,18 +326,18 @@ def plot_force_movement_dynamics(data, subj, n_trials_per_day, n_days):
 
     # Bottom plot for execution times
     trial_numbers = subdata['T'] - 1  # zero-indexed
-    execution_times = subdata['ET']
-    ax2.plot(trial_numbers, execution_times, color='black', linewidth=1)
+    speeds = subdata['speed']
+    ax2.plot(trial_numbers, speeds, color='black', linewidth=1)
     ax2.set_xlim(ax1.get_xlim())  # Align x-axis with heatmap
     ax2.set_xlabel('Trial Number')
-    ax2.set_ylabel('ET')
+    ax2.set_ylabel('Speed')
 
     # Add vertical lines for days on bottom plot
     for day in range(1, n_days):
         ax2.axvline(n_trials_per_day * day, color='red', linestyle='--', linewidth=0.7)
 
     # Mark error trials on bottom plot
-    ax2.scatter(error_trials, execution_times.iloc[error_trials], color='red', s=2)
+    ax2.scatter(error_trials, speeds.iloc[error_trials], color='red', s=2)
 
     sns.despine()
 
@@ -515,3 +518,86 @@ def plot_triplet_distances(distances):
 
     print("ANOVA results for for triplet distances::")
     print(AnovaRM(grouped_distances, 'Force_Distance', 'SubNum', within=['ET_diff_bin', 'is_middle_error']).fit())
+
+
+
+def plot_detrending_fits(data, feature):
+    correct_data = data[data['isError'] == False]
+    for subj in correct_data['SubNum'].unique():
+        try:
+            params, sigma = Detrending.fit_model(correct_data, subj, feature, 'fast_slow_model')
+        except RuntimeError:
+            print(f"Could not fit model for subject {subj}")
+            continue
+        print(f"Subject {subj}: A = {params[0]:.5f}, init_slow = {params[1]:.2f}, B = {params[2]:.2f}, C = {params[3]:.5f}, D = {params[4]:.2f}, sigma={sigma:.2f}")
+        # plot generated exp model against data
+        subj_data = correct_data[correct_data['SubNum'] == subj]
+        T = subj_data['T'].values
+        feature_values = subj_data[feature].values
+        feature_fit = Detrending.fast_slow_model(T, *params)
+        plt.figure(figsize=(8,3))
+        plt.scatter(T, feature_values, label='Data', s=10)
+        plt.plot(T, feature_fit, color='red', label='Fitted Exponential Model')
+        plt.xlabel('Trial Number (T)')
+        plt.ylabel(feature)
+        plt.title(f'Subject {subj} - {feature}')
+        plt.legend()
+        plt.show()
+
+def plot_residual_fits(residual_data):
+    test_r2s = []
+    train_r2s = []
+    for subnum, subdata in residual_data.groupby('SubNum'):
+        # randomly select 1/10 test set trials
+        n_trials = len(subdata)
+        n_test = n_trials // 10
+        test_indices = np.random.choice(subdata.index, size=n_test, replace=False)
+        train_indices = subdata.index.difference(test_indices)
+        train_data = subdata.loc[train_indices]
+        test_data = subdata.loc[test_indices]
+
+        # fit speed = F W with OLS with intercept
+        F_train = np.vstack(train_data['forceVector'].values)
+        speed_train = train_data['speed'].values
+        F_train = sm.add_constant(F_train)  # adds intercept term
+        model = sm.OLS(speed_train, F_train).fit()
+        #calculate R^2 on train set
+        speed_train_pred = model.predict(F_train)
+        ss_res_train = np.sum((speed_train - speed_train_pred) ** 2)
+        ss_tot_train = np.sum((speed_train - np.mean(speed_train)) ** 2)
+        r2_train = 1 - (ss_res_train / ss_tot_train)
+
+        
+        # print(f"Subject {subnum} OLS Regression Results:")
+        # print(model.summary())
+        # evaluate on test set
+        F_test = np.vstack(test_data['forceVector'].values)
+        F_test = sm.add_constant(F_test)  # adds intercept term
+        speed_test = test_data['speed'].values
+        speed_pred = model.predict(F_test)
+
+        #calculate R^2
+        ss_res = np.sum((speed_test - speed_pred) ** 2)
+        ss_tot = np.sum((speed_test - np.mean(speed_test)) ** 2)
+        r2 = 1 - (ss_res / ss_tot)
+        # print(f"****** Subject {subnum} ******")
+        # print(f"Train R^2: {r2_train:.4f}")
+        # print(f"Test R^2: {r2:.4f}")
+        train_r2s.append(r2_train)
+        test_r2s.append(r2)
+
+    r2s = pd.DataFrame({'Train_R2': train_r2s, 'Test_R2': test_r2s})
+    # plot train and test R^2s
+    plt.figure(figsize=(6, 4))
+    sns.barplot(data=r2s.melt(var_name='isTest', value_name='R2'), x='isTest', y='R2', palette='colorblind', errorbar='se', alpha = 0.3, hue = 'isTest', dodge = False)
+    sns.stripplot(data=r2s.melt(var_name='isTest', value_name='R2'), x='isTest', y='R2', color='gray', alpha=0.7, jitter=True)
+
+    plt.xticks([0, 1], ['Train', 'Test'])
+    plt.ylabel('R^2')
+    plt.title(r'R^2 of $\mathbf{Speed} = \mathbf{F} \mathbf{W}$ on residuals')
+    sns.despine(trim=True)
+    plt.show()
+    return train_r2s, test_r2s
+
+
+    
