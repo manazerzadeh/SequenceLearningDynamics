@@ -72,12 +72,12 @@ def fit_model(data, subj, feature, model_name):
 
 def detrend(data):
     correct_data = data[data['isError'] == False]
-    residual_data = correct_data.copy()
+    residual_data = data.copy()
 
     features = [col for col in data.columns if col.startswith('PC_')] + ['speed']
 
-    for subj in correct_data['SubNum'].unique():
-        subj_data = correct_data[correct_data['SubNum'] == subj]
+    for subj in data['SubNum'].unique():
+        subj_data = data[data['SubNum'] == subj]
         T = subj_data['T'].values
 
         for feature in features:
