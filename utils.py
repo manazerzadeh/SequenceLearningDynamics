@@ -13,6 +13,7 @@ import Detrending
 
 total_sub_num = 16
 seq_length  = 5
+n_fingers = 5
 
 
 def read_dat_file(filename: str):
@@ -600,4 +601,106 @@ def plot_residual_fits(residual_data):
     return train_r2s, test_r2s
 
 
+
+def plot_force_movement_dynamics_quartiles(data, subj, n_trials_per_day, n_days, quartile):
+
+    subdata = data[data['SubNum'] == subj].copy().reset_index(drop=True)
+    force_vectors = np.stack(subdata['forceVector'].values)
+    diff = force_vectors[:, np.newaxis, :] - force_vectors[np.newaxis, :, :]
+    distances = np.linalg.norm(diff, axis=-1)
+    vmin, vmax = np.percentile(distances, [5, 95])  # better visualization
+
+    # Create subplots: top for heatmap, bottom for execution times
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 6), gridspec_kw={'height_ratios': [6, 1]})
+
+    # Heatmap on top
+    sns.heatmap(distances, cmap='Blues', vmin=vmin, vmax=vmax, ax=ax1, cbar = False)
+    # indentifying day boundaries
+    day_change = subdata['day'].diff().fillna(0).astype(bool)
+    day_boundaries = day_change[day_change].index.tolist()
+    for boundary in day_boundaries:
+        ax1.axvline(boundary, color='red', linestyle='--', linewidth=2)
+        ax1.axhline(boundary, color='red', linestyle='--', linewidth=2)
+
+    # Add colorbar to the right of the heatmap
+    cbar_ax = fig.add_axes([1, 0.2, 0.01, 0.7])
+    fig.colorbar(ax1.collections[0], cax=cbar_ax)
+
+    ax1.set_title(f'Subject {subj} Quartile {quartile} Force Distance Matrix')
+    ax1.set_xlabel('')  # Remove x-label for now
+    ax1.set_ylabel('Trial Order')
+
+    # Bottom plot for execution times
+    speeds = subdata['speed']
+    ax2.plot(range(len(speeds)), speeds, color = 'black', linewidth=1)
+    ax2.set_xlim(ax1.get_xlim())  # Align x-axis with heatmap
+    ax2.set_xlabel('Trial Order')
+    ax2.set_ylabel('Speed')
+
+    sns.despine()
+
+    plt.subplots_adjust(hspace=0.05)  # Reduce space between subplots for alignment
+    plt.show()
+
+
+
+def plot_force_trace(force, ax=None, linestyle = '-', n_fingers = 5):
+    n_dims = force.shape[0]
+    force_reshaped = force.reshape((n_fingers, n_dims // n_fingers))
+    time = np.arange(force_reshaped.shape[1])
+    for i in range(n_fingers):
+        ax.plot(time, force_reshaped[i, :], label=f'Finger {i+1}', linestyle=linestyle,
+                color=sns.color_palette("colorblind")[i])
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Force')
+    ax.set_title('Force Trace per Finger')
+    # ax.legend()
+
+
+def calc_W_in_original_force(residual_data, PCs):
+    W_in_original_force = {}
+    for subnum, subdata in residual_data.groupby('SubNum'):
+        seq = subdata['seq'].iloc[0]
+        # randomly select 1/10 test set trials
+        n_trials = len(subdata)
+        n_test = n_trials // 10
+        test_indices = np.random.choice(subdata.index, size=n_test, replace=False)
+        train_indices = subdata.index.difference(test_indices)
+        train_data = subdata.loc[train_indices]
+        test_data = subdata.loc[test_indices]
+
+        # fit speed = F W with OLS with intercept
+        F_train = np.vstack(train_data['forceVector'].values)
+        speed_train = train_data['speed'].values
+        F_train = sm.add_constant(F_train)  # adds intercept term
+        model = sm.OLS(speed_train, F_train).fit()
+        W = model.params[1:]
+        W_norm = W / np.linalg.norm(W)
+
+        subj_pcs = PCs[(subnum, seq)]
+        # W_norm are loadings of PCs
+        W_in_original_force[subnum] = subj_pcs.T @ W_norm
+    return W_in_original_force
+
     
+
+
+def plot_subject_mean_forces_with_W(subj, mean_forces, W_in_original_force):
+    subj_mean_force = mean_forces[mean_forces['SubNum'] == subj]['forceVector'].iloc[0]
+    subj_W = W_in_original_force[subj]
+    ax = plt.figure(figsize=(8, 4)).gca()
+    plot_force_trace(subj_mean_force, ax=ax)
+    plot_force_trace(subj_W * 5, ax=ax, linestyle='--')
+    sns.despine()
+    plt.title(f'Subject {subj} Mean Force and W Direction')
+
+
+def calc_residual_speed_quartiles(residual_data):
+    residual_data_correct = residual_data[residual_data['isError'] == False].copy()
+    for subnum, subdata in residual_data_correct.groupby('SubNum'):
+        for day, daydata in subdata.groupby('day'):
+            correct_data = daydata[daydata['isError'] == False]
+            speeds_correct = correct_data['speed'].values
+            quartiles = np.quantile(speeds_correct, [0.0, 0.25, 0.5, 0.75, 1.0])
+            residual_data_correct.loc[daydata.index, 'quartile'] = pd.cut(speeds_correct, bins=quartiles, labels=[1,2,3,4], include_lowest=True)
+    return residual_data_correct

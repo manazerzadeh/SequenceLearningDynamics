@@ -3,3 +3,4 @@ Figs/
 .DS_Store
 .vscode/launch.json
 *.pyc
+PrivateAnalysis.ipynb
